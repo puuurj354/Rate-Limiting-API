@@ -373,6 +373,61 @@
             </div>
         </div>
 
+        <!-- Algorithm Selector -->
+        <div class="glass-card rounded-2xl p-6 mb-6 hover:border-accent-500/30 transition-all duration-300">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-semibold text-white">Select Algorithm</h2>
+                        <p class="text-sm text-slate-400">Choose rate limiting strategy</p>
+                    </div>
+                </div>
+
+                <!-- Algorithm toggle buttons -->
+                <div id="algorithm-selector" class="flex gap-2">
+                    <button id="btn-leaky" onclick="switchAlgorithm('leaky_bucket')"
+                        class="px-4 py-2 rounded-lg font-medium transition-all duration-300 bg-primary-500 text-white">
+                        🪣 Leaky Bucket
+                    </button>
+                    <button id="btn-token" onclick="switchAlgorithm('token_bucket')"
+                        class="px-4 py-2 rounded-lg font-medium transition-all duration-300 bg-white/10 text-slate-400 hover:bg-white/20">
+                        🎫 Token Bucket
+                    </button>
+                </div>
+            </div>
+
+            <!-- Algorithm description -->
+            <div id="algorithm-description" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div id="desc-leaky" class="bg-primary-500/10 border border-primary-500/30 rounded-xl p-4">
+                    <h3 class="font-semibold text-primary-400 mb-2">🪣 Leaky Bucket (Active)</h3>
+                    <ul class="text-xs text-slate-400 space-y-1">
+                        <li>• Requests <span class="text-white">add water</span> to bucket</li>
+                        <li>• Water <span class="text-emerald-400">leaks out</span> at constant rate</li>
+                        <li>• Full bucket = <span class="text-red-400">blocked</span></li>
+                        <li>• Best for: <span class="text-white">smooth, consistent rate</span></li>
+                    </ul>
+                </div>
+                <div id="desc-token" class="bg-white/5 border border-white/10 rounded-xl p-4 opacity-60">
+                    <h3 class="font-semibold text-slate-400 mb-2">🎫 Token Bucket</h3>
+                    <ul class="text-xs text-slate-500 space-y-1">
+                        <li>• Tokens <span class="text-slate-300">refill</span> over time</li>
+                        <li>• Requests <span class="text-slate-300">consume tokens</span></li>
+                        <li>• No tokens = <span class="text-red-400">blocked</span></li>
+                        <li>• Best for: <span class="text-slate-300">allowing bursts</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <!-- Main Layout: Test + Bucket Visualization -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
@@ -588,57 +643,181 @@
             try {
                 const data = JSON.parse(event.detail.xhr.responseText);
 
-                // Update water level (percentage of capacity)
-                const percentage = (data.Current / data.Capacity) * 100;
-                const waterEl = document.getElementById('water-level');
-                waterEl.style.height = percentage + '%';
-
-                // Update water color based on status
-                if (data.IsLimited) {
-                    waterEl.classList.add('limited');
-                    document.getElementById('send-request-btn').classList.add('animate-shake');
-                    setTimeout(() => document.getElementById('send-request-btn').classList.remove('animate-shake'), 500);
-                } else {
-                    waterEl.classList.remove('limited');
+                // Validate data exists
+                if (!data || typeof data.current === 'undefined') {
+                    console.log('Invalid data received:', data);
+                    return;
                 }
 
-                // Update text values
-                document.getElementById('bucket-current').textContent = data.Current.toFixed(1);
-                document.getElementById('bucket-remaining').textContent = data.Remaining.toFixed(1);
-                document.getElementById('bucket-key').textContent = data.Key || '-';
+                // Detect algorithm from response and update currentAlgorithm
+                if (data.algorithm) {
+                    currentAlgorithm = data.algorithm;
+                }
+
+                const isTokenBucket = (data.algorithm === 'token_bucket');
+
+                // Update bucket visual container based on algorithm
+                const waterEl = document.getElementById('water-level');
+                const leakEl = document.getElementById('leak-indicator');
+                const bucketHeader = document.querySelector('#bucket-visual').closest('.glass-card').querySelector('h2');
+                const bucketSubtext = document.querySelector('#bucket-visual').closest('.glass-card').querySelector('p.text-slate-400');
+
+                if (isTokenBucket) {
+                    // TOKEN BUCKET: Show tokens (filled from top, purple color)
+                    // For token bucket: remaining = tokens available, so show remaining as filled
+                    const percentage = (data.remaining / data.capacity) * 100;
+                    waterEl.style.height = percentage + '%';
+
+                    // Purple color scheme for tokens
+                    waterEl.style.background = 'linear-gradient(180deg, #e879f9 0%, #d946ef 50%, #a855f7 100%)';
+                    waterEl.classList.remove('limited');
+
+                    // Hide leak indicator, show refill
+                    leakEl.style.display = 'none';
+
+                    // Update header to show Token mode
+                    bucketHeader.innerHTML = '🎫 Token Bucket';
+                    bucketSubtext.innerHTML = 'Tokens available: ' + data.remaining.toFixed(1);
+
+                } else {
+                    // LEAKY BUCKET: Show water (fills up = bad)
+                    const percentage = (data.current / data.capacity) * 100;
+                    waterEl.style.height = percentage + '%';
+
+                    // Blue color scheme for water
+                    waterEl.style.background = 'linear-gradient(180deg, #38bdf8 0%, #0ea5e9 50%, #0284c7 100%)';
+
+                    // Update header to show Leaky mode
+                    bucketHeader.innerHTML = '🪣 Leaky Bucket';
+                    bucketSubtext.innerHTML = 'Water level: ' + data.current.toFixed(1);
+
+                    // Show leak indicator when there's water
+                    if (data.current > 0 && !data.is_limited) {
+                        leakEl.style.display = 'block';
+                    } else {
+                        leakEl.style.display = 'none';
+                    }
+                }
+
+                // Update color when rate limited (red for both)
+                if (data.is_limited) {
+                    waterEl.style.background = 'linear-gradient(180deg, #f87171 0%, #ef4444 50%, #dc2626 100%)';
+                    document.getElementById('send-request-btn').classList.add('animate-shake');
+                    setTimeout(() => document.getElementById('send-request-btn').classList.remove('animate-shake'), 500);
+                }
+
+                // Update text values - show appropriately for each algorithm
+                if (isTokenBucket) {
+                    // For token bucket: current shows "used" slots, remaining shows available tokens
+                    document.getElementById('bucket-current').textContent = data.remaining.toFixed(1);
+                } else {
+                    // For leaky bucket: current shows water level
+                    document.getElementById('bucket-current').textContent = data.current.toFixed(1);
+                }
+                document.getElementById('bucket-remaining').textContent = data.remaining.toFixed(1);
+                document.getElementById('bucket-key').textContent = data.key || '-';
 
                 // Update remaining color
                 const remainingEl = document.getElementById('bucket-remaining');
-                if (data.Remaining <= 0) {
+                if (data.remaining <= 0) {
                     remainingEl.className = 'text-xl font-bold text-red-400';
-                } else if (data.Remaining <= 3) {
+                } else if (data.remaining <= 3) {
                     remainingEl.className = 'text-xl font-bold text-amber-400';
                 } else {
                     remainingEl.className = 'text-xl font-bold text-emerald-400';
                 }
 
-                // Update status badge
+                // Update status badge with algorithm-specific text
                 const statusEl = document.getElementById('bucket-status');
-                if (data.IsLimited) {
-                    statusEl.textContent = '🚫 RATE LIMITED';
+                if (data.is_limited) {
+                    statusEl.textContent = isTokenBucket ? '🚫 NO TOKENS' : '🚫 BUCKET FULL';
                     statusEl.className = 'mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-300 animate-pulse';
                 } else {
-                    statusEl.textContent = '✓ OK';
-                    statusEl.className = 'mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300';
-                }
-
-                // Show/hide leak indicator based on water level
-                const leakEl = document.getElementById('leak-indicator');
-                if (data.Current > 0 && !data.IsLimited) {
-                    leakEl.style.display = 'block';
-                } else {
-                    leakEl.style.display = 'none';
+                    statusEl.textContent = isTokenBucket ? '🎫 ' + data.remaining.toFixed(0) + ' tokens' : '✓ OK';
+                    statusEl.className = isTokenBucket
+                        ? 'mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-accent-500/20 text-accent-300'
+                        : 'mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300';
                 }
 
             } catch (e) {
                 console.log('Error parsing status:', e);
             }
         }
+
+        // Current algorithm state
+        let currentAlgorithm = 'leaky_bucket';
+
+        // Switch algorithm via API
+        async function switchAlgorithm(algorithm) {
+            if (algorithm === currentAlgorithm) return; // Already selected
+
+            try {
+                const response = await fetch('/dashboard/algorithm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'algorithm=' + algorithm
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    currentAlgorithm = algorithm;
+                    updateAlgorithmUI(algorithm); // Update button styles
+                    refreshStatus(); // Refresh bucket visualization
+                    console.log('Switched to:', data);
+                } else {
+                    console.error('Failed to switch algorithm');
+                }
+            } catch (e) {
+                console.error('Error switching algorithm:', e);
+            }
+        }
+
+        // Update UI to reflect current algorithm
+        function updateAlgorithmUI(algorithm) {
+            const btnLeaky = document.getElementById('btn-leaky');
+            const btnToken = document.getElementById('btn-token');
+            const descLeaky = document.getElementById('desc-leaky');
+            const descToken = document.getElementById('desc-token');
+
+            if (algorithm === 'leaky_bucket') {
+                // Leaky Bucket active
+                btnLeaky.className = 'px-4 py-2 rounded-lg font-medium transition-all duration-300 bg-primary-500 text-white';
+                btnToken.className = 'px-4 py-2 rounded-lg font-medium transition-all duration-300 bg-white/10 text-slate-400 hover:bg-white/20';
+                descLeaky.className = 'bg-primary-500/10 border border-primary-500/30 rounded-xl p-4';
+                descLeaky.querySelector('h3').innerHTML = '🪣 Leaky Bucket (Active)';
+                descLeaky.querySelector('h3').className = 'font-semibold text-primary-400 mb-2';
+                descToken.className = 'bg-white/5 border border-white/10 rounded-xl p-4 opacity-60';
+                descToken.querySelector('h3').innerHTML = '🎫 Token Bucket';
+                descToken.querySelector('h3').className = 'font-semibold text-slate-400 mb-2';
+            } else {
+                // Token Bucket active
+                btnToken.className = 'px-4 py-2 rounded-lg font-medium transition-all duration-300 bg-accent-500 text-white';
+                btnLeaky.className = 'px-4 py-2 rounded-lg font-medium transition-all duration-300 bg-white/10 text-slate-400 hover:bg-white/20';
+                descToken.className = 'bg-accent-500/10 border border-accent-500/30 rounded-xl p-4';
+                descToken.querySelector('h3').innerHTML = '🎫 Token Bucket (Active)';
+                descToken.querySelector('h3').className = 'font-semibold text-accent-400 mb-2';
+                descLeaky.className = 'bg-white/5 border border-white/10 rounded-xl p-4 opacity-60';
+                descLeaky.querySelector('h3').innerHTML = '🪣 Leaky Bucket';
+                descLeaky.querySelector('h3').className = 'font-semibold text-slate-400 mb-2';
+            }
+        }
+
+        // Load current algorithm on page load
+        async function loadAlgorithm() {
+            try {
+                const response = await fetch('/dashboard/algorithm');
+                if (response.ok) {
+                    const data = await response.json();
+                    currentAlgorithm = data.current;
+                    updateAlgorithmUI(data.current);
+                }
+            } catch (e) {
+                console.log('Error loading algorithm:', e);
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', loadAlgorithm);
     </script>
 </body>
 

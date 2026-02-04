@@ -25,15 +25,21 @@ var funcMap = template.FuncMap{
 }
 
 func main() {
-	// Initialize Redis
+	// Initialize Redis connection
 	storage.InitRedis("localhost:6379", "", 0)
 
-	// Create rate limiter
-	// Capacity: 10 requests, LeakRate: 2 per second, TTL: 1 hour
-	rateLimiter := limiter.NewLeakyBucket(10, 2, time.Hour)
+	// Create both rate limiting algorithm instances
+	// Leaky Bucket: Capacity 10, LeakRate 2/sec, TTL 1 hour
+	leakyBucket := limiter.NewLeakyBucket(10, 2, time.Hour)
 
-	// Create dashboard handler
-	dashboardHandler := dashboard.NewHandler(rateLimiter)
+	// Token Bucket: Capacity 10, RefillRate 2/sec, TTL 1 hour
+	tokenBucket := limiter.NewTokenBucket(10, 2, time.Hour)
+
+	// Create LimiterManager with both algorithms, default to leaky_bucket
+	limiterManager := limiter.NewLimiterManager(leakyBucket, tokenBucket, "leaky_bucket")
+
+	// Create dashboard handler with manager
+	dashboardHandler := dashboard.NewHandler(limiterManager)
 
 	r := gin.Default()
 
@@ -58,11 +64,14 @@ func main() {
 		dashboardGroup.GET("/keys/json", dashboardHandler.ListKeysJSON)
 		dashboardGroup.POST("/reset", dashboardHandler.ResetKey)
 		dashboardGroup.POST("/test", dashboardHandler.TestRequest)
+		// Algorithm switching endpoints
+		dashboardGroup.GET("/algorithm", dashboardHandler.GetAlgorithm)
+		dashboardGroup.POST("/algorithm", dashboardHandler.SetAlgorithm)
 	}
 
-	// API routes dengan rate limiting
+	// API routes dengan rate limiting (uses the manager which delegates to active algorithm)
 	apiGroup := r.Group("/api")
-	apiGroup.Use(middleware.RateLimit(rateLimiter))
+	apiGroup.Use(middleware.RateLimit(limiterManager))
 	{
 		apiGroup.GET("/ping", func(c *gin.Context) {
 			c.JSON(200, gin.H{

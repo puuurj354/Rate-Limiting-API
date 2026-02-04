@@ -160,5 +160,6 @@ func (lb *LeakyBucket) GetStatus(ctx context.Context, key string) (*Status, erro
 		Remaining: remaining,
 		LeakRate:  lb.LeakRate,
 		IsLimited: waterLevel >= lb.Capacity,
+		Algorithm: "leaky_bucket",
 	}, nil
 }

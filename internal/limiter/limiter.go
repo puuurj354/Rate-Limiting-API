@@ -22,6 +22,7 @@ type Status struct {
 	Current   float64 `json:"current"`    // Current usage/water level
 	Capacity  float64 `json:"capacity"`   // Maximum capacity
 	Remaining float64 `json:"remaining"`  // Remaining capacity
-	LeakRate  float64 `json:"leak_rate"`  // Leak rate per second
+	LeakRate  float64 `json:"leak_rate"`  // Leak rate per second (or refill rate for token bucket)
 	IsLimited bool    `json:"is_limited"` // Apakah sedang di-limit
+	Algorithm string  `json:"algorithm"`  // Algorithm name: "leaky_bucket" or "token_bucket"
 }

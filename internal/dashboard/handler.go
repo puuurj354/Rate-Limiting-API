@@ -10,12 +10,16 @@ import (
 
 // Handler adalah struct untuk dashboard handlers
 type Handler struct {
-	Limiter limiter.RateLimiter
+	Limiter limiter.RateLimiter     // Active rate limiter (via manager)
+	Manager *limiter.LimiterManager // Manager for algorithm switching
 }
 
 // NewHandler membuat instance baru dashboard handler
-func NewHandler(rl limiter.RateLimiter) *Handler {
-	return &Handler{Limiter: rl}
+func NewHandler(manager *limiter.LimiterManager) *Handler {
+	return &Handler{
+		Limiter: manager,
+		Manager: manager,
+	}
 }
 
 // Index menampilkan halaman dashboard utama
@@ -195,4 +199,46 @@ func (h *Handler) TestRequest(c *gin.Context) {
 		"remaining": remaining,
 		"key":       key,
 	})
+}
+
+// GetAlgorithm returns the current algorithm info as JSON
+func (h *Handler) GetAlgorithm(c *gin.Context) {
+	info := h.Manager.GetAlgorithmInfo() // Get algorithm details from manager
+	c.JSON(http.StatusOK, info)          // Return as JSON response
+}
+
+// SetAlgorithm switches to a different rate limiting algorithm
+func (h *Handler) SetAlgorithm(c *gin.Context) {
+	algorithm := c.PostForm("algorithm") // Get algorithm name from form
+	if algorithm == "" {
+		// Try JSON body as fallback
+		var req struct {
+			Algorithm string `json:"algorithm"`
+		}
+		if err := c.BindJSON(&req); err == nil {
+			algorithm = req.Algorithm
+		}
+	}
+
+	// Validate and switch algorithm
+	if algorithm == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "algorithm parameter is required",
+		})
+		return
+	}
+
+	// Attempt to switch algorithm via manager
+	if !h.Manager.SetAlgorithm(algorithm) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid algorithm",
+			"valid": []string{"leaky_bucket", "token_bucket"},
+		})
+		return
+	}
+
+	// Return updated algorithm info
+	info := h.Manager.GetAlgorithmInfo()
+	info["message"] = "Algorithm switched successfully"
+	c.JSON(http.StatusOK, info)
 }
