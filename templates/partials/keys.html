@@ -1,0 +1,50 @@
+{{if .error}}
+<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+    <strong>Error:</strong> {{.error}}
+</div>
+{{else if .keys}}
+<div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Key</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {{range .keys}}
+            <tr>
+                <td class="px-4 py-3 whitespace-nowrap font-mono text-sm text-gray-800">{{.Key}}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{printf "%.1f" .Current}}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{printf "%.0f" .Capacity}}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm {{if gt .Remaining 0.0}}text-green-600{{else}}text-red-600{{end}}">{{printf "%.1f" .Remaining}}</td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    {{if .IsLimited}}
+                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Limited</span>
+                    {{else}}
+                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">OK</span>
+                    {{end}}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <button 
+                        hx-post="/dashboard/reset"
+                        hx-vals='{"key": "{{.Key}}"}'
+                        hx-target="#keys-container"
+                        hx-swap="innerHTML"
+                        hx-confirm="Reset rate limit for {{.Key}}?"
+                        class="text-red-600 hover:text-red-800 text-sm font-medium">
+                        Reset
+                    </button>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{else}}
+<p class="text-gray-500 text-center py-4">No active rate limit keys found</p>
+{{end}}

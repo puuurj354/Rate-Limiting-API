@@ -3,20 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rate-Limiting-API</title>
+    <title>Rate Limiting Dashboard</title>
     
     <!-- HTMX: The core library for HTML-over-the-wire -->
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     
     <!-- Tailwind CSS: Utility-first CSS framework -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-
-   
 </head>
 <body class="bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 min-h-screen py-12">
-    <div class="max-w-lg mx-auto">
-    
+    <div class="max-w-4xl mx-auto px-4">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Rate Limiting Dashboard</h1>
+            <p class="text-gray-600">Monitor and manage your API rate limits</p>
+        </div>
+
+        <!-- Test Request Section -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Test Rate Limit</h2>
+            <div class="flex gap-4 items-center">
+                <button 
+                    hx-post="/dashboard/test"
+                    hx-target="#test-result"
+                    hx-swap="innerHTML"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+                    Send Test Request
+                </button>
+                <div id="test-result" class="flex-1"></div>
+            </div>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Your Rate Limit Status</h2>
+                <button 
+                    hx-get="/dashboard/status"
+                    hx-target="#status-container"
+                    hx-swap="innerHTML"
+                    class="text-indigo-600 hover:text-indigo-700 font-medium">
+                    Refresh
+                </button>
+            </div>
+            <div id="status-container" hx-get="/dashboard/status" hx-trigger="load" hx-swap="innerHTML">
+                <div class="animate-pulse flex space-x-4">
+                    <div class="flex-1 space-y-4 py-1">
+                        <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                        <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Keys Section -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Active Rate Limit Keys</h2>
+                <button 
+                    hx-get="/dashboard/keys"
+                    hx-target="#keys-container"
+                    hx-swap="innerHTML"
+                    class="text-indigo-600 hover:text-indigo-700 font-medium">
+                    Refresh
+                </button>
+            </div>
+            <div id="keys-container" hx-get="/dashboard/keys" hx-trigger="load" hx-swap="innerHTML">
+                <div class="animate-pulse flex space-x-4">
+                    <div class="flex-1 space-y-4 py-1">
+                        <div class="h-4 bg-gray-200 rounded w-full"></div>
+                        <div class="h-4 bg-gray-200 rounded w-full"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reset Section -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mt-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Reset Rate Limit</h2>
+            <form hx-post="/dashboard/reset" hx-target="#reset-result" hx-swap="innerHTML" class="flex gap-4">
+                <input 
+                    type="text" 
+                    name="key" 
+                    placeholder="Enter key to reset (e.g., IP address)"
+                    class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <button 
+                    type="submit"
+                    class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+                    Reset
+                </button>
+            </form>
+            <div id="reset-result" class="mt-4"></div>
+        </div>
     </div>
 </body>
 </html>

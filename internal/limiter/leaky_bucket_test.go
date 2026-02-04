@@ -19,9 +19,21 @@ func setupMockRedis() redismock.ClientMock {
 	return mock
 }
 
+func TestNewLeakyBucket(t *testing.T) {
+	lb := NewLeakyBucket(10, 2, time.Hour)
+
+	assert.Equal(t, 10.0, lb.Capacity)
+	assert.Equal(t, 2.0, lb.LeakRate)
+	assert.Equal(t, time.Hour, lb.TTL)
+}
+
+func TestLeakyBucket_ImplementsInterface(t *testing.T) {
+	var _ RateLimiter = (*LeakyBucket)(nil)
+}
+
 func TestLeakyBucket_Allow_FirstRequest(t *testing.T) {
 	mock := setupMockRedis()
-	lb := &LeakyBucket{Capacity: 5, LeakRate: 1}
+	lb := NewLeakyBucket(5, 1, time.Hour)
 
 	key := "test_key"
 	waterKey := fmt.Sprintf("bucket:%s:water", key)
@@ -30,8 +42,8 @@ func TestLeakyBucket_Allow_FirstRequest(t *testing.T) {
 	// First request - keys don't exist yet
 	mock.ExpectGet(waterKey).RedisNil()
 	mock.ExpectGet(timeKey).RedisNil()
-	mock.ExpectSet(waterKey, "1", 0).SetVal("OK")
-	mock.Regexp().ExpectSet(timeKey, `\d+`, 0).SetVal("OK")
+	mock.ExpectSet(waterKey, "1", time.Hour).SetVal("OK")
+	mock.Regexp().ExpectSet(timeKey, `\d+`, time.Hour).SetVal("OK")
 
 	allowed, remaining, err := lb.Allow(ctx, key)
 	assert.NoError(t, err)
@@ -43,7 +55,7 @@ func TestLeakyBucket_Allow_FirstRequest(t *testing.T) {
 
 func TestLeakyBucket_Allow_ExceedCapacity(t *testing.T) {
 	mock := setupMockRedis()
-	lb := &LeakyBucket{Capacity: 5, LeakRate: 1}
+	lb := NewLeakyBucket(5, 1, time.Hour)
 
 	key := "test_key"
 	waterKey := fmt.Sprintf("bucket:%s:water", key)
@@ -64,7 +76,7 @@ func TestLeakyBucket_Allow_ExceedCapacity(t *testing.T) {
 
 func TestLeakyBucket_Allow_LeakOverTime(t *testing.T) {
 	mock := setupMockRedis()
-	lb := &LeakyBucket{Capacity: 5, LeakRate: 1} // Leak 1 per second
+	lb := NewLeakyBucket(5, 1, time.Hour)
 
 	key := "test_key"
 	waterKey := fmt.Sprintf("bucket:%s:water", key)
@@ -76,8 +88,8 @@ func TestLeakyBucket_Allow_LeakOverTime(t *testing.T) {
 
 	mock.ExpectGet(waterKey).SetVal("5")
 	mock.ExpectGet(timeKey).SetVal(pastTime)
-	mock.ExpectSet(waterKey, "3", 0).SetVal("OK") // 2 + 1 new request = 3
-	mock.Regexp().ExpectSet(timeKey, `\d+`, 0).SetVal("OK")
+	mock.ExpectSet(waterKey, "3", time.Hour).SetVal("OK") // 2 + 1 new request = 3
+	mock.Regexp().ExpectSet(timeKey, `\d+`, time.Hour).SetVal("OK")
 
 	allowed, remaining, err := lb.Allow(ctx, key)
 	assert.NoError(t, err)
@@ -89,7 +101,7 @@ func TestLeakyBucket_Allow_LeakOverTime(t *testing.T) {
 
 func TestLeakyBucket_Allow_MultipleRequests(t *testing.T) {
 	mock := setupMockRedis()
-	lb := &LeakyBucket{Capacity: 3, LeakRate: 0} // No leak for this test
+	lb := NewLeakyBucket(3, 0, time.Hour)
 
 	key := "multi_test"
 	waterKey := fmt.Sprintf("bucket:%s:water", key)
@@ -99,8 +111,8 @@ func TestLeakyBucket_Allow_MultipleRequests(t *testing.T) {
 	// Request 1 - empty bucket
 	mock.ExpectGet(waterKey).RedisNil()
 	mock.ExpectGet(timeKey).RedisNil()
-	mock.ExpectSet(waterKey, "1", 0).SetVal("OK")
-	mock.Regexp().ExpectSet(timeKey, `\d+`, 0).SetVal("OK")
+	mock.ExpectSet(waterKey, "1", time.Hour).SetVal("OK")
+	mock.Regexp().ExpectSet(timeKey, `\d+`, time.Hour).SetVal("OK")
 
 	allowed, remaining, err := lb.Allow(ctx, key)
 	assert.NoError(t, err)
@@ -110,8 +122,8 @@ func TestLeakyBucket_Allow_MultipleRequests(t *testing.T) {
 	// Request 2
 	mock.ExpectGet(waterKey).SetVal("1")
 	mock.ExpectGet(timeKey).SetVal(now)
-	mock.ExpectSet(waterKey, "2", 0).SetVal("OK")
-	mock.Regexp().ExpectSet(timeKey, `\d+`, 0).SetVal("OK")
+	mock.ExpectSet(waterKey, "2", time.Hour).SetVal("OK")
+	mock.Regexp().ExpectSet(timeKey, `\d+`, time.Hour).SetVal("OK")
 
 	allowed, remaining, err = lb.Allow(ctx, key)
 	assert.NoError(t, err)
@@ -121,8 +133,8 @@ func TestLeakyBucket_Allow_MultipleRequests(t *testing.T) {
 	// Request 3
 	mock.ExpectGet(waterKey).SetVal("2")
 	mock.ExpectGet(timeKey).SetVal(now)
-	mock.ExpectSet(waterKey, "3", 0).SetVal("OK")
-	mock.Regexp().ExpectSet(timeKey, `\d+`, 0).SetVal("OK")
+	mock.ExpectSet(waterKey, "3", time.Hour).SetVal("OK")
+	mock.Regexp().ExpectSet(timeKey, `\d+`, time.Hour).SetVal("OK")
 
 	allowed, remaining, err = lb.Allow(ctx, key)
 	assert.NoError(t, err)
@@ -143,7 +155,7 @@ func TestLeakyBucket_Allow_MultipleRequests(t *testing.T) {
 
 func TestLeakyBucket_Allow_RedisError(t *testing.T) {
 	mock := setupMockRedis()
-	lb := &LeakyBucket{Capacity: 5, LeakRate: 1}
+	lb := NewLeakyBucket(5, 1, time.Hour)
 
 	key := "error_test"
 	waterKey := fmt.Sprintf("bucket:%s:water", key)
@@ -155,6 +167,88 @@ func TestLeakyBucket_Allow_RedisError(t *testing.T) {
 	assert.Error(t, err)
 	assert.False(t, allowed)
 	assert.Equal(t, 0.0, remaining)
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestLeakyBucket_Reset(t *testing.T) {
+	mock := setupMockRedis()
+	lb := NewLeakyBucket(5, 1, time.Hour)
+
+	key := "reset_test"
+	waterKey := fmt.Sprintf("bucket:%s:water", key)
+	timeKey := fmt.Sprintf("bucket:%s:time", key)
+
+	mock.ExpectDel(waterKey).SetVal(1)
+	mock.ExpectDel(timeKey).SetVal(1)
+
+	err := lb.Reset(ctx, key)
+	assert.NoError(t, err)
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestLeakyBucket_GetStatus(t *testing.T) {
+	mock := setupMockRedis()
+	lb := NewLeakyBucket(10, 2, time.Hour)
+
+	key := "status_test"
+	waterKey := fmt.Sprintf("bucket:%s:water", key)
+	timeKey := fmt.Sprintf("bucket:%s:time", key)
+	now := fmt.Sprintf("%d", time.Now().Unix())
+
+	mock.ExpectGet(waterKey).SetVal("3")
+	mock.ExpectGet(timeKey).SetVal(now)
+
+	status, err := lb.GetStatus(ctx, key)
+	assert.NoError(t, err)
+	assert.Equal(t, key, status.Key)
+	assert.Equal(t, 3.0, status.Current)
+	assert.Equal(t, 10.0, status.Capacity)
+	assert.Equal(t, 7.0, status.Remaining)
+	assert.Equal(t, 2.0, status.LeakRate)
+	assert.False(t, status.IsLimited)
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestLeakyBucket_GetStatus_Limited(t *testing.T) {
+	mock := setupMockRedis()
+	lb := NewLeakyBucket(5, 1, time.Hour)
+
+	key := "limited_test"
+	waterKey := fmt.Sprintf("bucket:%s:water", key)
+	timeKey := fmt.Sprintf("bucket:%s:time", key)
+	now := fmt.Sprintf("%d", time.Now().Unix())
+
+	mock.ExpectGet(waterKey).SetVal("5")
+	mock.ExpectGet(timeKey).SetVal(now)
+
+	status, err := lb.GetStatus(ctx, key)
+	assert.NoError(t, err)
+	assert.Equal(t, 5.0, status.Current)
+	assert.Equal(t, 0.0, status.Remaining)
+	assert.True(t, status.IsLimited)
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestLeakyBucket_GetStatus_Empty(t *testing.T) {
+	mock := setupMockRedis()
+	lb := NewLeakyBucket(10, 1, time.Hour)
+
+	key := "empty_test"
+	waterKey := fmt.Sprintf("bucket:%s:water", key)
+	timeKey := fmt.Sprintf("bucket:%s:time", key)
+
+	mock.ExpectGet(waterKey).RedisNil()
+	mock.ExpectGet(timeKey).RedisNil()
+
+	status, err := lb.GetStatus(ctx, key)
+	assert.NoError(t, err)
+	assert.Equal(t, 0.0, status.Current)
+	assert.Equal(t, 10.0, status.Remaining)
+	assert.False(t, status.IsLimited)
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
