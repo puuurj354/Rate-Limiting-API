@@ -464,15 +464,28 @@
                         <p class="text-slate-500 text-sm">Click the button above to test rate limiting</p>
                     </div>
 
-                    <!-- Explanation Box -->
-                    <div class="bg-white/5 rounded-xl p-4 border border-white/10">
-                        <h3 class="text-sm font-semibold text-primary-400 mb-2">📖 What happens when you click?</h3>
+                    <!-- Explanation Box - Leaky Bucket -->
+                    <div id="explain-leaky" class="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <h3 class="text-sm font-semibold text-primary-400 mb-2">🪣 What happens when you click?</h3>
                         <ol class="text-xs text-slate-400 space-y-1 list-decimal list-inside">
                             <li>Request adds <span class="text-white font-medium">+1 water</span> to your bucket</li>
                             <li>If bucket is <span class="text-white font-medium">full (10)</span> → <span
                                     class="text-red-400">Rate Limited!</span></li>
                             <li>Bucket <span class="text-emerald-400 font-medium">leaks 2/sec</span> automatically</li>
                             <li>Wait a bit → bucket empties → you can send again!</li>
+                        </ol>
+                    </div>
+
+                    <!-- Explanation Box - Token Bucket (initially hidden) -->
+                    <div id="explain-token" class="bg-accent-500/10 rounded-xl p-4 border border-accent-500/30"
+                        style="display: none;">
+                        <h3 class="text-sm font-semibold text-accent-400 mb-2">🎫 What happens when you click?</h3>
+                        <ol class="text-xs text-slate-400 space-y-1 list-decimal list-inside">
+                            <li>Request <span class="text-white font-medium">consumes 1 token</span> from bucket</li>
+                            <li>If <span class="text-white font-medium">no tokens left (0)</span> → <span
+                                    class="text-red-400">Rate Limited!</span></li>
+                            <li>Tokens <span class="text-accent-400 font-medium">refill 2/sec</span> automatically</li>
+                            <li>Wait a bit → tokens refill → you can send again!</li>
                         </ol>
                     </div>
                 </div>
@@ -778,6 +791,9 @@
             const btnToken = document.getElementById('btn-token');
             const descLeaky = document.getElementById('desc-leaky');
             const descToken = document.getElementById('desc-token');
+            const explainLeaky = document.getElementById('explain-leaky');
+            const explainToken = document.getElementById('explain-token');
+            const sendBtn = document.getElementById('send-request-btn');
 
             if (algorithm === 'leaky_bucket') {
                 // Leaky Bucket active
@@ -789,6 +805,13 @@
                 descToken.className = 'bg-white/5 border border-white/10 rounded-xl p-4 opacity-60';
                 descToken.querySelector('h3').innerHTML = '🎫 Token Bucket';
                 descToken.querySelector('h3').className = 'font-semibold text-slate-400 mb-2';
+                
+                // Toggle explanation boxes
+                explainLeaky.style.display = 'block';
+                explainToken.style.display = 'none';
+                
+                // Update button text
+                sendBtn.innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> Send Request (+1 water)';
             } else {
                 // Token Bucket active
                 btnToken.className = 'px-4 py-2 rounded-lg font-medium transition-all duration-300 bg-accent-500 text-white';
@@ -799,6 +822,13 @@
                 descLeaky.className = 'bg-white/5 border border-white/10 rounded-xl p-4 opacity-60';
                 descLeaky.querySelector('h3').innerHTML = '🪣 Leaky Bucket';
                 descLeaky.querySelector('h3').className = 'font-semibold text-slate-400 mb-2';
+                
+                // Toggle explanation boxes
+                explainLeaky.style.display = 'none';
+                explainToken.style.display = 'block';
+                
+                // Update button text  
+                sendBtn.innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> Send Request (-1 token)';
             }
         }
 
