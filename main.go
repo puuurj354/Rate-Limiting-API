@@ -41,7 +41,12 @@ func main() {
 	r.SetFuncMap(funcMap)
 
 	// Load HTML templates
-	r.LoadHTMLGlob("templates/**/*")
+	r.LoadHTMLFiles(
+		"templates/index.html",
+		"templates/partials/status.html",
+		"templates/partials/keys.html",
+		"templates/partials/test_result.html",
+	)
 
 	// Dashboard routes (tanpa rate limiting)
 	dashboardGroup := r.Group("/dashboard")

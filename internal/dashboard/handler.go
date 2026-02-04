@@ -67,26 +67,60 @@ func (h *Handler) GetStatusJSON(c *gin.Context) {
 func (h *Handler) ResetKey(c *gin.Context) {
 	key := c.PostForm("key")
 	if key == "" {
-		c.HTML(http.StatusBadRequest, "partials/status.html", gin.H{
-			"error": "Key is required",
-		})
+		// Check if request is from keys table or reset form
+		hxTarget := c.GetHeader("HX-Target")
+		if hxTarget == "keys-container" {
+			c.HTML(http.StatusBadRequest, "partials/keys.html", gin.H{
+				"error": "Key is required",
+			})
+		} else {
+			c.HTML(http.StatusBadRequest, "partials/status.html", gin.H{
+				"error": "Key is required",
+			})
+		}
 		return
 	}
 
 	err := h.Limiter.Reset(c.Request.Context(), key)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "partials/status.html", gin.H{
-			"error": err.Error(),
-		})
+		hxTarget := c.GetHeader("HX-Target")
+		if hxTarget == "keys-container" {
+			c.HTML(http.StatusInternalServerError, "partials/keys.html", gin.H{
+				"error": err.Error(),
+			})
+		} else {
+			c.HTML(http.StatusInternalServerError, "partials/status.html", gin.H{
+				"error": err.Error(),
+			})
+		}
 		return
 	}
 
-	// Dapatkan status terbaru setelah reset
-	status, _ := h.Limiter.GetStatus(c.Request.Context(), key)
-	c.HTML(http.StatusOK, "partials/status.html", gin.H{
-		"status":  status,
-		"message": "Rate limit reset successfully",
-	})
+	// Check HX-Target header to determine response type
+	hxTarget := c.GetHeader("HX-Target")
+	if hxTarget == "keys-container" {
+		// Request from keys table - return refreshed keys list
+		ctx := c.Request.Context()
+		keys, _ := storage.RedisClient.Keys(ctx, "bucket:*:water").Result()
+		var statuses []*limiter.Status
+		for _, fullKey := range keys {
+			k := fullKey[7 : len(fullKey)-6]
+			status, err := h.Limiter.GetStatus(ctx, k)
+			if err == nil {
+				statuses = append(statuses, status)
+			}
+		}
+		c.HTML(http.StatusOK, "partials/keys.html", gin.H{
+			"keys": statuses,
+		})
+	} else {
+		// Request from reset form - return status with message
+		status, _ := h.Limiter.GetStatus(c.Request.Context(), key)
+		c.HTML(http.StatusOK, "partials/status.html", gin.H{
+			"status":  status,
+			"message": "Rate limit for '" + key + "' reset successfully",
+		})
+	}
 }
 
 // ListKeys mendapatkan daftar semua keys yang sedang di-track

@@ -1,100 +1,646 @@
+{{ define "index.html" }}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rate Limiting Dashboard</title>
-    
+    <title>Rate Limiting Dashboard | API Monitor</title>
+
+    <!-- Meta SEO -->
+    <meta name="description" content="Monitor and manage your API rate limits with real-time dashboard">
+
     <!-- HTMX: The core library for HTML-over-the-wire -->
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-    
+
     <!-- Tailwind CSS: Utility-first CSS framework -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        accent: {
+                            50: '#fdf4ff',
+                            100: '#fae8ff',
+                            200: '#f5d0fe',
+                            300: '#f0abfc',
+                            400: '#e879f9',
+                            500: '#d946ef',
+                            600: '#c026d3',
+                            700: '#a21caf',
+                            800: '#86198f',
+                            900: '#701a75',
+                        }
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'gradient': 'gradient 8s ease infinite',
+                        'water-rise': 'waterRise 0.5s ease-out',
+                        'shake': 'shake 0.5s ease-in-out',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        gradient: {
+                            '0%, 100%': { backgroundPosition: '0% 50%' },
+                            '50%': { backgroundPosition: '100% 50%' },
+                        },
+                        waterRise: {
+                            '0%': { transform: 'scaleY(0.8)' },
+                            '50%': { transform: 'scaleY(1.1)' },
+                            '100%': { transform: 'scaleY(1)' },
+                        },
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '25%': { transform: 'translateX(-5px)' },
+                            '75%': { transform: 'translateX(5px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Glassmorphism card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        /* Animated gradient background */
+        .animated-gradient {
+            background: linear-gradient(-45deg, #0f172a, #1e293b, #0c4a6e, #134e4a);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+        }
+
+        /* Glow effects */
+        .glow-primary {
+            box-shadow: 0 0 40px rgba(14, 165, 233, 0.3);
+        }
+
+        .glow-success {
+            box-shadow: 0 0 30px rgba(34, 197, 94, 0.4);
+        }
+
+        .glow-danger {
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.4);
+        }
+
+        /* Button hover effect */
+        .btn-primary {
+            background: linear-gradient(135deg, #0ea5e9 0%, #8b5cf6 100%);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(14, 165, 233, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            transition: all 0.3s ease;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(239, 68, 68, 0.4);
+        }
+
+        /* Stat card hover */
+        .stat-card {
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        /* HTMX loading indicator */
+        .htmx-request .htmx-indicator {
+            display: inline-flex;
+        }
+
+        .htmx-indicator {
+            display: none;
+        }
+
+        /* Table row hover */
+        .table-row-hover:hover {
+            background: rgba(14, 165, 233, 0.1);
+        }
+
+        /* Floating orbs */
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.5;
+            z-index: 0;
+        }
+
+        /* Bucket visualization */
+        .bucket-container {
+            width: 120px;
+            height: 180px;
+            position: relative;
+            margin: 0 auto;
+        }
+
+        .bucket {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 0 0 20px 20px;
+            border-top: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bucket::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px 10px 0 0;
+        }
+
+        .water {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 50%, #0284c7 100%);
+            border-radius: 0 0 15px 15px;
+            transition: height 0.5s ease-out;
+        }
+
+        .water.limited {
+            background: linear-gradient(180deg, #f87171 0%, #ef4444 50%, #dc2626 100%);
+        }
+
+        .water-bubbles {
+            position: absolute;
+            bottom: 20%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            animation: bubble 2s infinite;
+        }
+
+        @keyframes bubble {
+            0% {
+                transform: translateX(-50%) translateY(0);
+                opacity: 0.4;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: translateX(-50%) translateY(-60px);
+                opacity: 0;
+            }
+        }
+
+        .leak-drop {
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10px;
+            height: 15px;
+            background: #38bdf8;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            animation: drip 1s infinite;
+        }
+
+        @keyframes drip {
+            0% {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+        }
+
+        /* Live indicator */
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+        }
+
+        /* Request counter animation */
+        .request-flash {
+            animation: flash 0.3s ease-out;
+        }
+
+        @keyframes flash {
+            0% {
+                background: rgba(14, 165, 233, 0.5);
+            }
+
+            100% {
+                background: transparent;
+            }
+        }
+    </style>
 </head>
-<body class="bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 min-h-screen py-12">
-    <div class="max-w-4xl mx-auto px-4">
+
+<body class="animated-gradient min-h-screen font-sans text-white overflow-x-hidden">
+    <!-- Floating decorative orbs -->
+    <div class="orb w-96 h-96 bg-primary-500/30 -top-48 -left-48 animate-float"></div>
+    <div class="orb w-80 h-80 bg-accent-500/20 top-1/3 -right-40 animate-float" style="animation-delay: -2s;"></div>
+    <div class="orb w-72 h-72 bg-emerald-500/20 bottom-20 left-1/4 animate-float" style="animation-delay: -4s;"></div>
+
+    <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-800 mb-2">Rate Limiting Dashboard</h1>
-            <p class="text-gray-600">Monitor and manage your API rate limits</p>
-        </div>
+        <header class="text-center mb-8">
+            <div class="inline-flex items-center gap-3 mb-4">
+                <div
+                    class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center glow-primary">
+                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+                <h1
+                    class="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white via-primary-200 to-accent-300 bg-clip-text text-transparent">
+                    Rate Limiter
+                </h1>
+            </div>
+            <p class="text-lg text-slate-400 max-w-2xl mx-auto">
+                Real-time monitoring with Leaky Bucket Algorithm
+            </p>
+        </header>
 
-        <!-- Test Request Section -->
-        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">Test Rate Limit</h2>
-            <div class="flex gap-4 items-center">
-                <button 
-                    hx-post="/dashboard/test"
-                    hx-target="#test-result"
-                    hx-swap="innerHTML"
-                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
-                    Send Test Request
-                </button>
-                <div id="test-result" class="flex-1"></div>
+        <!-- Live Status Banner -->
+        <div class="glass-card rounded-xl p-4 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="live-indicator">
+                <span class="live-dot"></span>
+                <span class="text-sm text-emerald-400 font-medium">LIVE</span>
+                <span class="text-sm text-slate-400">• Status updates every 2 seconds</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-sm text-slate-400">Request Counter:</span>
+                <span id="request-counter"
+                    class="text-2xl font-bold text-primary-400 px-3 py-1 rounded-lg bg-white/5">0</span>
             </div>
         </div>
 
-        <!-- Stats Section -->
-        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold text-gray-800">Your Rate Limit Status</h2>
-                <button 
-                    hx-get="/dashboard/status"
-                    hx-target="#status-container"
-                    hx-swap="innerHTML"
-                    class="text-indigo-600 hover:text-indigo-700 font-medium">
-                    Refresh
-                </button>
+        <!-- Main Layout: Test + Bucket Visualization -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+            <!-- Test Request Card -->
+            <div class="glass-card rounded-2xl p-6 hover:border-primary-500/30 transition-all duration-300">
+                <div class="flex items-center gap-3 mb-4">
+                    <div
+                        class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-semibold text-white">Send Test Request</h2>
+                        <p class="text-sm text-slate-400">Each click = 1 request to your bucket</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <button id="send-request-btn" hx-post="/dashboard/test" hx-target="#test-result" hx-swap="innerHTML"
+                        hx-on::after-request="refreshStatus(); incrementCounter();"
+                        class="w-full btn-primary text-white font-semibold py-4 px-8 rounded-xl flex items-center justify-center gap-2 text-lg">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Send Request (+1 to bucket)
+                    </button>
+
+                    <div id="test-result" class="min-h-[50px] flex items-center justify-center">
+                        <p class="text-slate-500 text-sm">Click the button above to test rate limiting</p>
+                    </div>
+
+                    <!-- Explanation Box -->
+                    <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <h3 class="text-sm font-semibold text-primary-400 mb-2">📖 What happens when you click?</h3>
+                        <ol class="text-xs text-slate-400 space-y-1 list-decimal list-inside">
+                            <li>Request adds <span class="text-white font-medium">+1 water</span> to your bucket</li>
+                            <li>If bucket is <span class="text-white font-medium">full (10)</span> → <span
+                                    class="text-red-400">Rate Limited!</span></li>
+                            <li>Bucket <span class="text-emerald-400 font-medium">leaks 2/sec</span> automatically</li>
+                            <li>Wait a bit → bucket empties → you can send again!</li>
+                        </ol>
+                    </div>
+                </div>
             </div>
-            <div id="status-container" hx-get="/dashboard/status" hx-trigger="load" hx-swap="innerHTML">
-                <div class="animate-pulse flex space-x-4">
-                    <div class="flex-1 space-y-4 py-1">
-                        <div class="h-4 bg-gray-200 rounded w-3/4"></div>
-                        <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+
+            <!-- Bucket Visualization Card -->
+            <div class="glass-card rounded-2xl p-6 hover:border-accent-500/30 transition-all duration-300">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-10 h-10 rounded-lg bg-gradient-to-br from-accent-500 to-accent-700 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-semibold text-white">Your Bucket</h2>
+                            <p class="text-sm text-slate-400">Visual representation</p>
+                        </div>
+                    </div>
+                    <div class="live-indicator">
+                        <span class="live-dot"></span>
+                        <span class="text-xs text-slate-400">Auto-updating</span>
+                    </div>
+                </div>
+
+                <!-- Bucket Visual -->
+                <div id="bucket-visual" hx-get="/dashboard/status/json" hx-trigger="load, every 2s" hx-swap="none"
+                    hx-on::after-request="updateBucketVisual(event)">
+                    <div class="flex items-end justify-center gap-8 mb-4">
+                        <div class="bucket-container">
+                            <div class="bucket">
+                                <div id="water-level" class="water" style="height: 0%;">
+                                    <div class="water-bubbles"></div>
+                                </div>
+                            </div>
+                            <div id="leak-indicator" class="leak-drop" style="display: none;"></div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-5xl font-bold mb-1" id="bucket-current">0</div>
+                            <div class="text-slate-400 text-sm">/ 10</div>
+                            <div id="bucket-status"
+                                class="mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300">
+                                OK</div>
+                        </div>
+                    </div>
+
+                    <!-- Stats Row -->
+                    <div class="grid grid-cols-3 gap-3 text-center">
+                        <div class="bg-white/5 rounded-lg p-3">
+                            <p class="text-xs text-slate-400">Remaining</p>
+                            <p id="bucket-remaining" class="text-xl font-bold text-emerald-400">10</p>
+                        </div>
+                        <div class="bg-white/5 rounded-lg p-3">
+                            <p class="text-xs text-slate-400">Leak Rate</p>
+                            <p class="text-xl font-bold text-primary-400">2/s</p>
+                        </div>
+                        <div class="bg-white/5 rounded-lg p-3">
+                            <p class="text-xs text-slate-400">Your Key</p>
+                            <p id="bucket-key" class="text-sm font-mono text-white truncate">-</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
+        <!-- Status Section (Hidden, used for refresh) -->
+        <div id="status-container" class="hidden" hx-get="/dashboard/status" hx-trigger="load" hx-swap="innerHTML">
+        </div>
+
         <!-- Active Keys Section -->
-        <div class="bg-white rounded-xl shadow-lg p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold text-gray-800">Active Rate Limit Keys</h2>
-                <button 
-                    hx-get="/dashboard/keys"
-                    hx-target="#keys-container"
-                    hx-swap="innerHTML"
-                    class="text-indigo-600 hover:text-indigo-700 font-medium">
+        <div class="glass-card rounded-2xl p-6 mb-6 hover:border-primary-500/30 transition-all duration-300">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-semibold text-white">All Active Buckets</h2>
+                        <p class="text-sm text-slate-400">All clients being rate-limited</p>
+                    </div>
+                </div>
+                <button hx-get="/dashboard/keys" hx-target="#keys-container" hx-swap="innerHTML"
+                    class="flex items-center gap-2 text-primary-400 hover:text-primary-300 font-medium transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
                     Refresh
                 </button>
             </div>
-            <div id="keys-container" hx-get="/dashboard/keys" hx-trigger="load" hx-swap="innerHTML">
-                <div class="animate-pulse flex space-x-4">
-                    <div class="flex-1 space-y-4 py-1">
-                        <div class="h-4 bg-gray-200 rounded w-full"></div>
-                        <div class="h-4 bg-gray-200 rounded w-full"></div>
-                    </div>
+            <div id="keys-container" hx-get="/dashboard/keys" hx-trigger="load, every 5s" hx-swap="innerHTML">
+                <div class="animate-pulse space-y-3">
+                    <div class="h-12 bg-white/5 rounded-lg"></div>
                 </div>
             </div>
         </div>
 
         <!-- Reset Section -->
-        <div class="bg-white rounded-xl shadow-lg p-6 mt-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">Reset Rate Limit</h2>
-            <form hx-post="/dashboard/reset" hx-target="#reset-result" hx-swap="innerHTML" class="flex gap-4">
-                <input 
-                    type="text" 
-                    name="key" 
-                    placeholder="Enter key to reset (e.g., IP address)"
-                    class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <button 
-                    type="submit"
-                    class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
-                    Reset
+        <div class="glass-card rounded-2xl p-6 hover:border-red-500/20 transition-all duration-300">
+            <div class="flex items-center gap-3 mb-6">
+                <div
+                    class="w-10 h-10 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-xl font-semibold text-white">Reset Bucket</h2>
+                    <p class="text-sm text-slate-400">Empty a bucket instantly (admin action)</p>
+                </div>
+            </div>
+            <form hx-post="/dashboard/reset" hx-target="#reset-result" hx-swap="innerHTML"
+                hx-on::after-request="refreshStatus();" class="flex flex-col sm:flex-row gap-4">
+                <div class="flex-1">
+                    <input type="text" name="key" id="reset-key-input" placeholder="e.g., 127.0.0.1 or ::1"
+                        class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    <p class="text-xs text-slate-500 mt-2">💡 Copy from "Your Key" above or from the table</p>
+                </div>
+                <button type="submit"
+                    class="btn-danger text-white font-semibold py-3 px-8 rounded-xl flex items-center justify-center gap-2 whitespace-nowrap">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Reset Bucket
                 </button>
             </form>
             <div id="reset-result" class="mt-4"></div>
         </div>
+
+        <!-- Footer -->
+        <footer class="text-center mt-12 pb-8">
+            <p class="text-slate-500 text-sm">
+                Built with
+                <span class="text-red-400">♥</span>
+                using Go, HTMX & Tailwind CSS
+            </p>
+        </footer>
     </div>
+
+    <!-- JavaScript for dynamic updates -->
+    <script>
+        let requestCount = 0;
+
+        // Increment request counter with animation
+        function incrementCounter() {
+            requestCount++;
+            const counter = document.getElementById('request-counter');
+            counter.textContent = requestCount;
+            counter.classList.add('request-flash');
+            setTimeout(() => counter.classList.remove('request-flash'), 300);
+        }
+
+        // Refresh status section
+        function refreshStatus() {
+            htmx.trigger('#bucket-visual', 'htmx:load');
+        }
+
+        // Update bucket visualization from JSON response
+        function updateBucketVisual(event) {
+            try {
+                const data = JSON.parse(event.detail.xhr.responseText);
+
+                // Update water level (percentage of capacity)
+                const percentage = (data.Current / data.Capacity) * 100;
+                const waterEl = document.getElementById('water-level');
+                waterEl.style.height = percentage + '%';
+
+                // Update water color based on status
+                if (data.IsLimited) {
+                    waterEl.classList.add('limited');
+                    document.getElementById('send-request-btn').classList.add('animate-shake');
+                    setTimeout(() => document.getElementById('send-request-btn').classList.remove('animate-shake'), 500);
+                } else {
+                    waterEl.classList.remove('limited');
+                }
+
+                // Update text values
+                document.getElementById('bucket-current').textContent = data.Current.toFixed(1);
+                document.getElementById('bucket-remaining').textContent = data.Remaining.toFixed(1);
+                document.getElementById('bucket-key').textContent = data.Key || '-';
+
+                // Update remaining color
+                const remainingEl = document.getElementById('bucket-remaining');
+                if (data.Remaining <= 0) {
+                    remainingEl.className = 'text-xl font-bold text-red-400';
+                } else if (data.Remaining <= 3) {
+                    remainingEl.className = 'text-xl font-bold text-amber-400';
+                } else {
+                    remainingEl.className = 'text-xl font-bold text-emerald-400';
+                }
+
+                // Update status badge
+                const statusEl = document.getElementById('bucket-status');
+                if (data.IsLimited) {
+                    statusEl.textContent = '🚫 RATE LIMITED';
+                    statusEl.className = 'mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-300 animate-pulse';
+                } else {
+                    statusEl.textContent = '✓ OK';
+                    statusEl.className = 'mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300';
+                }
+
+                // Show/hide leak indicator based on water level
+                const leakEl = document.getElementById('leak-indicator');
+                if (data.Current > 0 && !data.IsLimited) {
+                    leakEl.style.display = 'block';
+                } else {
+                    leakEl.style.display = 'none';
+                }
+
+            } catch (e) {
+                console.log('Error parsing status:', e);
+            }
+        }
+    </script>
 </body>
+
 </html>
+{{ end }}
