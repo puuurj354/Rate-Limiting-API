@@ -105,10 +105,25 @@ func (h *Handler) ResetKey(c *gin.Context) {
 	if hxTarget == "keys-container" {
 		// Request from keys table - return refreshed keys list
 		ctx := c.Request.Context()
-		keys, _ := storage.RedisClient.Keys(ctx, "bucket:*:water").Result()
+
+		// Get key pattern based on current algorithm
+		var keyPattern string
+		var prefixLen, suffixLen int
+		currentAlgo := h.Manager.GetCurrentAlgorithm()
+		if currentAlgo == "token_bucket" {
+			keyPattern = "token:*:tokens"
+			prefixLen = 6 // "token:"
+			suffixLen = 7 // ":tokens"
+		} else {
+			keyPattern = "bucket:*:water"
+			prefixLen = 7 // "bucket:"
+			suffixLen = 6 // ":water"
+		}
+
+		keys, _ := storage.RedisClient.Keys(ctx, keyPattern).Result()
 		var statuses []*limiter.Status
 		for _, fullKey := range keys {
-			k := fullKey[7 : len(fullKey)-6]
+			k := fullKey[prefixLen : len(fullKey)-suffixLen]
 			status, err := h.Limiter.GetStatus(ctx, k)
 			if err == nil {
 				statuses = append(statuses, status)
@@ -131,8 +146,22 @@ func (h *Handler) ResetKey(c *gin.Context) {
 func (h *Handler) ListKeys(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// Scan untuk keys dengan pattern bucket:*:water
-	keys, err := storage.RedisClient.Keys(ctx, "bucket:*:water").Result()
+	// Get key pattern based on current algorithm
+	var keyPattern string
+	var prefixLen, suffixLen int
+	currentAlgo := h.Manager.GetCurrentAlgorithm()
+	if currentAlgo == "token_bucket" {
+		keyPattern = "token:*:tokens"
+		prefixLen = 6 // "token:"
+		suffixLen = 7 // ":tokens"
+	} else {
+		keyPattern = "bucket:*:water"
+		prefixLen = 7 // "bucket:"
+		suffixLen = 6 // ":water"
+	}
+
+	// Scan untuk keys dengan pattern sesuai algoritma
+	keys, err := storage.RedisClient.Keys(ctx, keyPattern).Result()
 	if err != nil {
 		c.HTML(http.StatusInternalServerError, "partials/keys.html", gin.H{
 			"error": err.Error(),
@@ -143,8 +172,8 @@ func (h *Handler) ListKeys(c *gin.Context) {
 	// Extract key names dan dapatkan status masing-masing
 	var statuses []*limiter.Status
 	for _, fullKey := range keys {
-		// Extract key dari "bucket:{key}:water"
-		key := fullKey[7 : len(fullKey)-6] // Remove "bucket:" prefix and ":water" suffix
+		// Extract key dari pattern
+		key := fullKey[prefixLen : len(fullKey)-suffixLen]
 		status, err := h.Limiter.GetStatus(ctx, key)
 		if err == nil {
 			statuses = append(statuses, status)
@@ -160,7 +189,21 @@ func (h *Handler) ListKeys(c *gin.Context) {
 func (h *Handler) ListKeysJSON(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	keys, err := storage.RedisClient.Keys(ctx, "bucket:*:water").Result()
+	// Get key pattern based on current algorithm
+	var keyPattern string
+	var prefixLen, suffixLen int
+	currentAlgo := h.Manager.GetCurrentAlgorithm()
+	if currentAlgo == "token_bucket" {
+		keyPattern = "token:*:tokens"
+		prefixLen = 6 // "token:"
+		suffixLen = 7 // ":tokens"
+	} else {
+		keyPattern = "bucket:*:water"
+		prefixLen = 7 // "bucket:"
+		suffixLen = 6 // ":water"
+	}
+
+	keys, err := storage.RedisClient.Keys(ctx, keyPattern).Result()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -170,7 +213,7 @@ func (h *Handler) ListKeysJSON(c *gin.Context) {
 
 	var statuses []*limiter.Status
 	for _, fullKey := range keys {
-		key := fullKey[7 : len(fullKey)-6]
+		key := fullKey[prefixLen : len(fullKey)-suffixLen]
 		status, err := h.Limiter.GetStatus(ctx, key)
 		if err == nil {
 			statuses = append(statuses, status)

@@ -121,12 +121,15 @@ func (lb *LeakyBucket) GetStatus(ctx context.Context, key string) (*Status, erro
 	// Ambil nilai water level dari Redis
 	waterVal, err := storage.RedisClient.Get(ctx, waterKey).Result()
 	var waterLevel float64
+	var keyExists bool
 	if err == redis.Nil {
 		waterLevel = 0
+		keyExists = false
 	} else if err != nil {
 		return nil, err
 	} else {
 		waterLevel, _ = strconv.ParseFloat(waterVal, 64)
+		keyExists = true
 	}
 
 	// Ambil last update time dari Redis
@@ -146,6 +149,15 @@ func (lb *LeakyBucket) GetStatus(ctx context.Context, key string) (*Status, erro
 	waterLevel = waterLevel - leaked
 	if waterLevel < 0 {
 		waterLevel = 0
+	}
+
+	// IMPORTANT: Save the updated state to Redis to ensure consistency
+	// Only save if the key already exists (has been used before)
+	if keyExists && elapsed > 0 {
+		// Save updated water level
+		storage.RedisClient.Set(ctx, waterKey, strconv.FormatFloat(waterLevel, 'f', -1, 64), lb.TTL)
+		// Save current time as last update time
+		storage.RedisClient.Set(ctx, timeKey, strconv.FormatInt(now, 10), lb.TTL)
 	}
 
 	remaining := lb.Capacity - waterLevel

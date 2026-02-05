@@ -354,7 +354,7 @@
                     Rate Limiter
                 </h1>
             </div>
-            <p class="text-lg text-slate-400 max-w-2xl mx-auto">
+            <p id="header-subtitle" class="text-lg text-slate-400 max-w-2xl mx-auto">
                 Real-time monitoring with Leaky Bucket Algorithm
             </p>
         </header>
@@ -654,12 +654,18 @@
         // Update bucket visualization from JSON response
         function updateBucketVisual(event) {
             try {
-                const data = JSON.parse(event.detail.xhr.responseText);
+                // Check if response is empty or not JSON
+                const responseText = event.detail.xhr.responseText;
+                if (!responseText || responseText.trim() === '' || responseText.startsWith('<')) {
+                    // Response is empty or HTML, skip parsing
+                    return;
+                }
+
+                const data = JSON.parse(responseText);
 
                 // Validate data exists
                 if (!data || typeof data.current === 'undefined') {
-                    console.log('Invalid data received:', data);
-                    return;
+                    return; // Silent return, don't log unless debugging
                 }
 
                 // Detect algorithm from response and update currentAlgorithm
@@ -764,6 +770,9 @@
         async function switchAlgorithm(algorithm) {
             if (algorithm === currentAlgorithm) return; // Already selected
 
+            // Show notification about separate bucket data
+            const algoName = algorithm === 'token_bucket' ? 'Token Bucket' : 'Leaky Bucket';
+
             try {
                 const response = await fetch('/dashboard/algorithm', {
                     method: 'POST',
@@ -776,7 +785,11 @@
                     currentAlgorithm = algorithm;
                     updateAlgorithmUI(algorithm); // Update button styles
                     refreshStatus(); // Refresh bucket visualization
-                    console.log('Switched to:', data);
+
+                    // Refresh keys table to show keys for new algorithm
+                    htmx.trigger('#keys-container', 'htmx:load');
+
+                    console.log('Switched to:', algoName);
                 } else {
                     console.error('Failed to switch algorithm');
                 }
@@ -805,13 +818,16 @@
                 descToken.className = 'bg-white/5 border border-white/10 rounded-xl p-4 opacity-60';
                 descToken.querySelector('h3').innerHTML = '🎫 Token Bucket';
                 descToken.querySelector('h3').className = 'font-semibold text-slate-400 mb-2';
-                
+
                 // Toggle explanation boxes
                 explainLeaky.style.display = 'block';
                 explainToken.style.display = 'none';
-                
+
                 // Update button text
                 sendBtn.innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> Send Request (+1 water)';
+
+                // Update header subtitle
+                document.getElementById('header-subtitle').textContent = 'Real-time monitoring with Leaky Bucket Algorithm';
             } else {
                 // Token Bucket active
                 btnToken.className = 'px-4 py-2 rounded-lg font-medium transition-all duration-300 bg-accent-500 text-white';
@@ -822,13 +838,16 @@
                 descLeaky.className = 'bg-white/5 border border-white/10 rounded-xl p-4 opacity-60';
                 descLeaky.querySelector('h3').innerHTML = '🪣 Leaky Bucket';
                 descLeaky.querySelector('h3').className = 'font-semibold text-slate-400 mb-2';
-                
+
                 // Toggle explanation boxes
                 explainLeaky.style.display = 'none';
                 explainToken.style.display = 'block';
-                
+
                 // Update button text  
                 sendBtn.innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> Send Request (-1 token)';
+
+                // Update header subtitle
+                document.getElementById('header-subtitle').textContent = 'Real-time monitoring with Token Bucket Algorithm';
             }
         }
 

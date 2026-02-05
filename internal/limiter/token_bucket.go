@@ -19,9 +19,9 @@ var _ RateLimiter = (*TokenBucket)(nil)
 // - If no tokens available, request is denied
 // - Allows bursts up to bucket capacity
 type TokenBucket struct {
-	Capacity   float64       // Maximum number of tokens in bucket
-	RefillRate float64       // Tokens added per second
-	TTL        time.Duration // TTL for Redis keys (0 = no expiry)
+	Capacity   float64
+	RefillRate float64
+	TTL        time.Duration
 }
 
 // NewTokenBucket creates a new TokenBucket instance
@@ -46,8 +46,6 @@ func (tb *TokenBucket) timeKey(key string) string {
 	return "token:" + key + ":time"
 }
 
-// Allow checks if request is allowed and consumes a token
-// Returns: (allowed, remaining tokens, error)
 func (tb *TokenBucket) Allow(ctx context.Context, key string) (bool, float64, error) {
 	tokensKey := tb.tokensKey(key) // Redis key for token storage
 	timeKey := tb.timeKey(key)     // Redis key for last refill time
@@ -83,10 +81,10 @@ func (tb *TokenBucket) Allow(ctx context.Context, key string) (bool, float64, er
 	}
 
 	// Calculate tokens to add based on elapsed time
-	elapsed := float64(now - lastTime)        // Seconds since last refill
-	tokensToAdd := elapsed * tb.RefillRate    // Tokens earned in that time
-	tokens = tokens + tokensToAdd             // Add refilled tokens
-	if tokens > tb.Capacity {                 // Cap at maximum capacity
+	elapsed := float64(now - lastTime)     // Seconds since last refill
+	tokensToAdd := elapsed * tb.RefillRate // Tokens earned in that time
+	tokens = tokens + tokensToAdd          // Add refilled tokens
+	if tokens > tb.Capacity {              // Cap at maximum capacity
 		tokens = tb.Capacity
 	}
 
@@ -138,15 +136,18 @@ func (tb *TokenBucket) GetStatus(ctx context.Context, key string) (*Status, erro
 	// Retrieve current token count from Redis
 	tokensVal, err := storage.RedisClient.Get(ctx, tokensKey).Result()
 	var tokens float64
+	var keyExists bool
 	if err == redis.Nil {
 		// Key doesn't exist - bucket is full
 		tokens = tb.Capacity
+		keyExists = false
 	} else if err != nil {
 		// Redis error - return failure
 		return nil, err
 	} else {
 		// Parse existing token count
 		tokens, _ = strconv.ParseFloat(tokensVal, 64)
+		keyExists = true
 	}
 
 	// Retrieve last refill timestamp from Redis
@@ -169,6 +170,15 @@ func (tb *TokenBucket) GetStatus(ctx context.Context, key string) (*Status, erro
 	tokens = tokens + tokensToAdd          // Add refilled tokens
 	if tokens > tb.Capacity {              // Cap at maximum capacity
 		tokens = tb.Capacity
+	}
+
+	// IMPORTANT: Save the updated state to Redis to ensure consistency
+	// Only save if the key already exists (has been used before)
+	if keyExists && elapsed > 0 {
+		// Save updated token count
+		storage.RedisClient.Set(ctx, tokensKey, strconv.FormatFloat(tokens, 'f', -1, 64), tb.TTL)
+		// Save current time as last refill time
+		storage.RedisClient.Set(ctx, timeKey, strconv.FormatInt(now, 10), tb.TTL)
 	}
 
 	// For Token Bucket, "current usage" = capacity - tokens (inverse of Leaky Bucket)
