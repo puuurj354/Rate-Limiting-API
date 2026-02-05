@@ -450,8 +450,7 @@
                 </div>
 
                 <div class="space-y-4">
-                    <button id="send-request-btn" hx-post="/dashboard/test" hx-target="#test-result" hx-swap="innerHTML"
-                        hx-on::after-request="refreshStatus(); incrementCounter();"
+                    <button id="send-request-btn" onclick="sendRequestWithLog()"
                         class="w-full btn-primary text-white font-semibold py-4 px-8 rounded-xl flex items-center justify-center gap-2 text-lg">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -589,38 +588,44 @@
             </div>
         </div>
 
-        <!-- Reset Section -->
-        <div class="glass-card rounded-2xl p-6 hover:border-red-500/20 transition-all duration-300">
-            <div class="flex items-center gap-3 mb-6">
-                <div
-                    class="w-10 h-10 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- Activity Log Section -->
+        <div class="glass-card rounded-2xl p-6 hover:border-emerald-500/20 transition-all duration-300">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-semibold text-white">Activity Log</h2>
+                        <p class="text-sm text-slate-400">Transparent view of request processing</p>
+                    </div>
+                </div>
+                <button onclick="clearActivityLog()"
+                    class="flex items-center gap-2 text-slate-400 hover:text-red-400 font-medium transition-colors text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                </div>
-                <div>
-                    <h2 class="text-xl font-semibold text-white">Reset Bucket</h2>
-                    <p class="text-sm text-slate-400">Empty a bucket instantly (admin action)</p>
+                    Clear Log
+                </button>
+            </div>
+
+            <!-- Log Container -->
+            <div id="activity-log" class="space-y-2 max-h-80 overflow-y-auto pr-2">
+                <div class="text-center py-8 text-slate-500">
+                    <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <p>Send a request to see activity log</p>
+                    <p class="text-xs mt-1">Each request shows before/after values</p>
                 </div>
             </div>
-            <form hx-post="/dashboard/reset" hx-target="#reset-result" hx-swap="innerHTML"
-                hx-on::after-request="refreshStatus();" class="flex flex-col sm:flex-row gap-4">
-                <div class="flex-1">
-                    <input type="text" name="key" id="reset-key-input" placeholder="e.g., 127.0.0.1 or ::1"
-                        class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
-                    <p class="text-xs text-slate-500 mt-2">💡 Copy from "Your Key" above or from the table</p>
-                </div>
-                <button type="submit"
-                    class="btn-danger text-white font-semibold py-3 px-8 rounded-xl flex items-center justify-center gap-2 whitespace-nowrap">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Reset Bucket
-                </button>
-            </form>
-            <div id="reset-result" class="mt-4"></div>
         </div>
 
         <!-- Footer -->
@@ -636,6 +641,8 @@
     <!-- JavaScript for dynamic updates -->
     <script>
         let requestCount = 0;
+        let activityLogs = []; // Store activity log entries
+        const MAX_LOGS = 50; // Maximum log entries to keep
 
         // Increment request counter with animation
         function incrementCounter() {
@@ -644,6 +651,114 @@
             counter.textContent = requestCount;
             counter.classList.add('request-flash');
             setTimeout(() => counter.classList.remove('request-flash'), 300);
+        }
+
+        // Add entry to activity log
+        function addActivityLog(entry) {
+            activityLogs.unshift(entry); // Add to beginning
+            if (activityLogs.length > MAX_LOGS) activityLogs.pop(); // Keep max entries
+            renderActivityLog();
+        }
+
+        // Render activity log UI
+        function renderActivityLog() {
+            const container = document.getElementById('activity-log');
+            if (activityLogs.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-slate-500">
+                        <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <p>Send a request to see activity log</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = activityLogs.map((log, i) => {
+                const isAllowed = log.result === 'allowed';
+                const bgClass = isAllowed ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30';
+                const icon = isAllowed ? '✅' : '🚫';
+                const algoIcon = log.algorithm === 'token_bucket' ? '🎫' : '🪣';
+                const algoName = log.algorithm === 'token_bucket' ? 'Token Bucket' : 'Leaky Bucket';
+
+                // Calculate what happened
+                let explanation = '';
+                if (log.algorithm === 'token_bucket') {
+                    explanation = isAllowed
+                        ? `<span class="text-yellow-400">-1 token consumed</span>, <span class="text-emerald-400">+${log.refilled.toFixed(2)} refilled</span>`
+                        : `<span class="text-red-400">No tokens available</span>`;
+                } else {
+                    explanation = isAllowed
+                        ? `<span class="text-blue-400">+1 water added</span>, <span class="text-cyan-400">-${log.leaked.toFixed(2)} leaked</span>`
+                        : `<span class="text-red-400">Bucket full</span>`;
+                }
+
+                return `
+                    <div class="flex items-start gap-3 p-3 rounded-lg border ${bgClass} transition-all animate-pulse-once">
+                        <div class="text-lg">${icon}</div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 text-sm">
+                                <span class="font-mono text-slate-400">${log.time}</span>
+                                <span class="px-2 py-0.5 rounded text-xs ${log.algorithm === 'token_bucket' ? 'bg-accent-500/20 text-accent-300' : 'bg-primary-500/20 text-primary-300'}">${algoIcon} ${algoName}</span>
+                            </div>
+                            <div class="mt-1 text-sm">
+                                <span class="text-slate-300">Before:</span> 
+                                <span class="font-mono text-white">${log.before.toFixed(1)}</span>
+                                <span class="text-slate-500 mx-1">→</span>
+                                <span class="text-slate-300">After:</span>
+                                <span class="font-mono text-white">${log.after.toFixed(1)}</span>
+                                <span class="text-slate-500 mx-1">|</span>
+                                ${explanation}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Clear activity log
+        function clearActivityLog() {
+            activityLogs = [];
+            renderActivityLog();
+        }
+
+        // Send request and add to activity log with detailed info
+        async function sendRequestWithLog() {
+            try {
+                const response = await fetch('/dashboard/test/json', { method: 'POST' });
+                const data = await response.json();
+
+                // Add to activity log
+                addActivityLog(data);
+
+                // Increment counter
+                incrementCounter();
+
+                // Refresh bucket visualization
+                refreshStatus();
+
+                // Update test result area with visual feedback
+                const resultDiv = document.getElementById('test-result');
+                if (data.allowed) {
+                    resultDiv.innerHTML = `
+                        <div class="flex items-center gap-2 text-emerald-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>Request allowed! Remaining: ${data.after.toFixed(1)}</span>
+                        </div>`;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="flex items-center gap-2 text-red-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            <span>Rate limited! Try again later.</span>
+                        </div>`;
+                }
+            } catch (e) {
+                console.error('Error sending request:', e);
+            }
         }
 
         // Refresh status section

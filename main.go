@@ -64,6 +64,7 @@ func main() {
 		dashboardGroup.GET("/keys/json", dashboardHandler.ListKeysJSON)
 		dashboardGroup.POST("/reset", dashboardHandler.ResetKey)
 		dashboardGroup.POST("/test", dashboardHandler.TestRequest)
+		dashboardGroup.POST("/test/json", dashboardHandler.TestRequestJSON) // JSON response with before/after
 		// Algorithm switching endpoints
 		dashboardGroup.GET("/algorithm", dashboardHandler.GetAlgorithm)
 		dashboardGroup.POST("/algorithm", dashboardHandler.SetAlgorithm)

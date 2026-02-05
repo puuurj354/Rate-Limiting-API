@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/user/Rate-Limiting-API/internal/limiter"
@@ -284,4 +285,69 @@ func (h *Handler) SetAlgorithm(c *gin.Context) {
 	info := h.Manager.GetAlgorithmInfo()
 	info["message"] = "Algorithm switched successfully"
 	c.JSON(http.StatusOK, info)
+}
+
+// TestRequestJSON processes a test request and returns detailed JSON for activity logging
+// Returns before/after values, refill/leak amounts, and result for transparency
+func (h *Handler) TestRequestJSON(c *gin.Context) {
+	key := c.ClientIP() // Get client IP as the rate limit key
+
+	// Get status BEFORE the request to capture initial state
+	beforeStatus, err := h.Limiter.GetStatus(c.Request.Context(), key)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	beforeValue := beforeStatus.Remaining // Store value before request
+
+	// Process the actual request through rate limiter
+	allowed, remaining, err := h.Limiter.Allow(c.Request.Context(), key)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get current algorithm name
+	algorithm := h.Manager.GetCurrentAlgorithm()
+
+	// Calculate refill/leak amount based on algorithm
+	// For Token Bucket: refilled = beforeValue - initialCapacity + consumed + afterValue
+	// For Leaky Bucket: leaked = beforeValue + added - afterValue
+	var refilled, leaked float64
+	if algorithm == "token_bucket" {
+		// Before request, tokens might have refilled since last action
+		// After request, 1 token consumed
+		// refilled ≈ what was gained between last action and now
+		refilled = beforeValue - remaining - 1 // Approximate refill during this cycle
+		if refilled < 0 {
+			refilled = 0
+		}
+	} else {
+		// Leaky bucket: water drains over time
+		// leaked ≈ beforeValue + 1 - remaining (1 added from this request)
+		leaked = beforeValue + 1 - remaining
+		if leaked < 0 {
+			leaked = 0
+		}
+	}
+
+	// Determine result string
+	result := "allowed"
+	if !allowed {
+		result = "denied"
+	}
+
+	// Return detailed response for activity log
+	c.JSON(http.StatusOK, gin.H{
+		"allowed":   allowed,
+		"result":    result,
+		"key":       key,
+		"algorithm": algorithm,
+		"before":    beforeValue, // Value before this request
+		"after":     remaining,   // Value after this request
+		"refilled":  refilled,    // Tokens refilled (token bucket)
+		"leaked":    leaked,      // Water leaked (leaky bucket)
+		"capacity":  beforeStatus.Capacity,
+		"time":      time.Now().Format("15:04:05"), // HH:MM:SS format
+	})
 }
